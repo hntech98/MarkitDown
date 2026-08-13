@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تبدیل فایل به Markdown</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Vazirmatn','Segoe UI',Tahoma,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{background:#1e293b;border-radius:16px;padding:40px;width:100%;max-width:720px;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+h1{text-align:center;font-size:1.8rem;margin-bottom:6px;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{text-align:center;color:#94a3b8;margin-bottom:32px;font-size:.9rem}
+.formats{text-align:center;margin-bottom:24px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.format-badge{background:#334155;color:#94a3b8;padding:4px 14px;border-radius:20px;font-size:.8rem;font-weight:600}
+.drop-zone{border:2px dashed #475569;border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s}
+.drop-zone:hover,.drop-zone.dragover{border-color:#38bdf8;background:rgba(56,189,248,.05)}
+.drop-zone p{color:#94a3b8;font-size:1rem}
+.drop-zone .icon{font-size:3rem;margin-bottom:12px;display:block}
+input[type=file]{display:none}
+.options{margin-top:20px;display:none}
+.options label{display:block;color:#94a3b8;font-size:.85rem;margin-bottom:6px}
+.options input[type=text]{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:.95rem;outline:none;transition:border .2s;font-family:inherit}
+.options input[type=text]:focus{border-color:#38bdf8}
+.sheet-select{margin-top:12px;display:none}
+.sheet-select label{display:block;color:#94a3b8;font-size:.85rem;margin-bottom:6px}
+.sheet-select select{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:.95rem;font-family:inherit;cursor:pointer}
+.sheet-select select:focus{outline:none;border-color:#38bdf8}
+.btn-row{display:flex;gap:12px;margin-top:20px}
+button{flex:1;padding:12px;border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-convert{background:linear-gradient(135deg,#38bdf8,#818cf8);color:#0f172a}
+.btn-convert:hover{opacity:.9;transform:translateY(-1px)}
+.btn-convert:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-download{background:#10b981;color:#fff;display:none}
+.btn-download:hover{opacity:.9}
+.btn-copy{background:#475569;color:#e2e8f0;display:none}
+.btn-copy:hover{background:#64748b}
+.preview{margin-top:24px;display:none}
+.preview h3{color:#94a3b8;font-size:.85rem;margin-bottom:8px}
+.preview pre{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:16px;max-height:400px;overflow:auto;font-size:.85rem;line-height:1.8;white-space:pre-wrap;word-break:break-word;font-family:'Vazirmatn','Cascadia Code','Fira Code',monospace}
+.file-info{display:none;margin-top:12px;padding:10px 14px;background:#0f172a;border-radius:8px;border:1px solid #334155}
+.file-info .name{color:#38bdf8;font-size:.9rem;font-weight:600}
+.file-info .type{color:#64748b;font-size:.8rem;margin-top:2px}
+.error{color:#f87171;margin-top:12px;font-size:.9rem;display:none}
+.spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(0,0,0,.2);border-top-color:#0f172a;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-left:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>تبدیل فایل به Markdown</h1>
+  <p class="subtitle">فایل مورد نظر را بکشید یا کلیک کنید</p>
+
+  <div class="formats">
+    <span class="format-badge">DOCX</span>
+    <span class="format-badge">XLSX</span>
+    <span class="format-badge">PDF</span>
+  </div>
+
+  <div class="drop-zone" id="dropZone">
+    <span class="icon">📄</span>
+    <p>فایل را اینجا رها کنید</p>
+    <p style="margin-top:8px;font-size:.8rem;color:#64748b">docx, xlsx, pdf</p>
+  </div>
+  <input type="file" id="fileInput" accept=".docx,.xlsx,.pdf">
+
+  <div class="file-info" id="fileInfo">
+    <div class="name" id="fileName"></div>
+    <div class="type" id="fileType"></div>
+  </div>
+
+  <div class="options" id="options">
+    <label>نام فایل خروجی:</label>
+    <input type="text" id="outputName" placeholder="نام فایل markdown">
+  </div>
+
+  <div class="sheet-select" id="sheetSelect">
+    <label>انتخاب شیت:</label>
+    <select id="sheetList"></select>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-convert" id="btnConvert" disabled>تبدیل کن</button>
+    <button class="btn-download" id="btnDownload">دانلود .md</button>
+    <button class="btn-copy" id="btnCopy">کپی</button>
+  </div>
+
+  <p class="error" id="error"></p>
+
+  <div class="preview" id="preview">
+    <h3>پیش‌نمایش:</h3>
+    <pre id="mdOutput"></pre>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const DOCX_NS='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const XLSX_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const STYLE_MAP={Heading1:'# ',Heading2:'## ',Heading3:'### ',Heading4:'#### ',Heading5:'##### ',Heading6:'###### ',ListBullet:'- ',ListNumber:'1. '};
+
+const dropZone=document.getElementById('dropZone');
+const fileInput=document.getElementById('fileInput');
+const options=document.getElementById('options');
+const outputName=document.getElementById('outputName');
+const sheetSelect=document.getElementById('sheetSelect');
+const sheetList=document.getElementById('sheetList');
+const btnConvert=document.getElementById('btnConvert');
+const btnDownload=document.getElementById('btnDownload');
+const btnCopy=document.getElementById('btnCopy');
+const fileInfoEl=document.getElementById('fileInfo');
+const fileNameEl=document.getElementById('fileName');
+const fileTypeEl=document.getElementById('fileType');
+const errorEl=document.getElementById('error');
+const previewEl=document.getElementById('preview');
+const mdOutput=document.getElementById('mdOutput');
+
+let selectedFile=null;
+let markdownResult='';
+let xlsxData=null;
+let xlsxSheets=[];
+
+dropZone.addEventListener('click',()=>fileInput.click());
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
+
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!['docx','xlsx','pdf'].includes(ext)){showError('فرمت پشتیبانی نمی‌شود');return}
+  hideError();
+  selectedFile=file;
+  const baseName=file.name.replace(/\.[^.]+$/,'');
+  outputName.value=baseName;
+  fileNameEl.textContent=file.name;
+  const types={docx:'Microsoft Word',xlsx:'Microsoft Excel',pdf:'PDF Document'};
+  fileTypeEl.textContent=types[ext]||ext.toUpperCase();
+  fileInfoEl.style.display='block';
+  options.style.display='block';
+  btnConvert.disabled=false;
+  btnDownload.style.display='none';
+  btnCopy.style.display='none';
+  previewEl.style.display='none';
+  sheetSelect.style.display='none';
+  xlsxData=null;
+  xlsxSheets=[];
+}
+
+btnConvert.addEventListener('click',async()=>{
+  if(!selectedFile)return;
+  btnConvert.disabled=true;
+  btnConvert.innerHTML='<span class="spinner"></span>در حال تبدیل...';
+  try{
+    const ext=selectedFile.name.split('.').pop().toLowerCase();
+    if(ext==='docx') await convertDocx();
+    else if(ext==='xlsx') await convertXlsx();
+    else if(ext==='pdf') await convertPdf();
+    mdOutput.textContent=markdownResult;
+    previewEl.style.display='block';
+    btnDownload.style.display='block';
+    btnCopy.style.display='block';
+  }catch(e){
+    showError('خطا: '+e.message);
+  }
+  btnConvert.disabled=false;
+  btnConvert.textContent='تبدیل کن';
+});
+
+btnDownload.addEventListener('click',()=>{
+  const name=(outputName.value.trim()||'output')+'.md';
+  const blob=new Blob([markdownResult],{type:'text/markdown;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+btnCopy.addEventListener('click',()=>{
+  navigator.clipboard.writeText(markdownResult).then(()=>{
+    btnCopy.textContent='کپی شد!';
+    setTimeout(()=>btnCopy.textContent='کپی',1500);
+  });
+});
+
+async function convertDocx(){
+  const data=await selectedFile.arrayBuffer();
+  const zip=await JSZip.loadAsync(data);
+  const docXml=await zip.file('word/document.xml').async('string');
+  markdownResult=parseDocx(docXml);
+}
+
+function parseDocx(xml){
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(xml,'application/xml');
+  const paragraphs=doc.getElementsByTagNameNS(DOCX_NS,'p');
+  const lines=[];
+  for(let i=0;i<paragraphs.length;i++){
+    const para=paragraphs[i];
+    let style=null;
+    const ppr=para.getElementsByTagNameNS(DOCX_NS,'pPr')[0];
+    if(ppr){const ps=ppr.getElementsByTagNameNS(DOCX_NS,'pStyle')[0];if(ps)style=ps.getAttribute('w:val')}
+    const text=getDocxRuns(para).trim();
+    if(!text){lines.push('');continue}
+    const prefix=STYLE_MAP[style]||'';
+    if(style&&style.startsWith('Heading'))lines.push(prefix+text);
+    else if(style==='ListBullet')lines.push('- '+text);
+    else if(style==='ListNumber')lines.push('1. '+text);
+    else lines.push(text);
+  }
+  return lines.join('\n');
+}
+
+function getDocxRuns(para){
+  const runs=para.getElementsByTagNameNS(DOCX_NS,'r');
+  let result='';
+  for(let i=0;i<runs.length;i++){
+    const r=runs[i];
+    let text='';
+    const ts=r.getElementsByTagNameNS(DOCX_NS,'t');
+    for(let j=0;j<ts.length;j++){if(ts[j].textContent)text+=ts[j].textContent}
+    if(!text)continue;
+    const rpr=r.getElementsByTagNameNS(DOCX_NS,'rPr')[0];
+    const bold=rpr&&rpr.getElementsByTagNameNS(DOCX_NS,'b').length>0;
+    const italic=rpr&&rpr.getElementsByTagNameNS(DOCX_NS,'i').length>0;
+    const underline=rpr&&rpr.getElementsByTagNameNS(DOCX_NS,'u').length>0;
+    if(bold)text='**'+text+'**';
+    if(italic)text='*'+text+'*';
+    if(underline)text='__'+text+'__';
+    result+=text;
+  }
+  return result;
+}
+
+async function convertXlsx(){
+  const data=await selectedFile.arrayBuffer();
+  const zip=await JSZip.loadAsync(data);
+  const sharedStrings=[];
+  const ssFile=zip.file('xl/sharedStrings.xml');
+  if(ssFile){
+    const ssXml=await ssFile.async('string');
+    const parser=new DOMParser();
+    const ssDoc=parser.parseFromString(ssXml,'application/xml');
+    const siEls=ssDoc.getElementsByTagNameNS(XLSX_NS,'si');
+    for(let i=0;i<siEls.length;i++){
+      const ts=siEls[i].getElementsByTagNameNS(XLSX_NS,'t');
+      let s='';
+      for(let j=0;j<ts.length;j++){if(ts[j].textContent)s+=ts[j].textContent}
+      sharedStrings.push(s);
+    }
+  }
+  const wbXml=await zip.file('xl/workbook.xml').async('string');
+  const wbParser=new DOMParser();
+  const wbDoc=wbParser.parseFromString(wbXml,'application/xml');
+  const sheetEls=wbDoc.getElementsByTagNameNS(XLSX_NS,'sheet');
+  xlsxSheets=[];
+  for(let i=0;i<sheetEls.length;i++){
+    xlsxSheets.push({name:sheetEls[i].getAttribute('name'),rid:sheetEls[i].getAttribute('r:id')});
+  }
+  const relsXml=await zip.file('xl/_rels/workbook.xml.rels').async('string');
+  const relsDoc=wbParser.parseFromString(relsXml,'application/xml');
+  const rels=relsDoc.getElementsByTagName('Relationship');
+  const ridMap={};
+  for(let i=0;i<rels.length;i++){
+    ridMap[rels[i].getAttribute('Id')]=rels[i].getAttribute('Target');
+  }
+  for(let s=0;s<xlsxSheets.length;s++){
+    const sheet=xlsxSheets[s];
+    const target=ridMap[sheet.rid];
+    if(!target)continue;
+    const sheetPath='xl/'+target;
+    const sheetFile=zip.file(sheetPath);
+    if(!sheetFile)continue;
+    const sheetXml=await sheetFile.async('string');
+    sheet.data=parseSheet(sheetXml,sharedStrings);
+  }
+  sheetList.innerHTML='';
+  for(let i=0;i<xlsxSheets.length;i++){
+    const opt=document.createElement('option');
+    opt.value=i;
+    opt.textContent=xlsxSheets[i].name;
+    sheetList.appendChild(opt);
+  }
+  if(xlsxSheets.length>1)sheetSelect.style.display='block';
+  sheetList.onchange=()=>{renderSheet()};
+  renderSheet();
+}
+
+function parseSheet(xml,sharedStrings){
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(xml,'application/xml');
+  const rows=doc.getElementsByTagNameNS(XLSX_NS,'row');
+  const result=[];
+  for(let i=0;i<rows.length;i++){
+    const cells=rows[i].getElementsByTagNameNS(XLSX_NS,'c');
+    const row=[];
+    for(let j=0;j<cells.length;j++){
+      const cell=cells[j];
+      const t=cell.getAttribute('t');
+      const vEl=cell.getElementsByTagNameNS(XLSX_NS,'v')[0];
+      let val=vEl?vEl.textContent:'';
+      if(t==='s')val=sharedStrings[parseInt(val)]||'';
+      else if(t==='b')val=val==='1'?'TRUE':'FALSE';
+      row.push(val);
+    }
+    result.push(row);
+  }
+  return result;
+}
+
+function renderSheet(){
+  const idx=parseInt(sheetList.value)||0;
+  const sheet=xlsxSheets[idx];
+  if(!sheet||!sheet.data)return;
+  markdownResult=buildTable(sheet.data);
+  mdOutput.textContent=markdownResult;
+  previewEl.style.display='block';
+  btnDownload.style.display='block';
+  btnCopy.style.display='block';
+}
+
+function buildTable(data){
+  if(!data.length)return '';
+  const maxCols=Math.max(...data.map(r=>r.length));
+  const normalized=data.map(r=>{while(r.length<maxCols)r.push('');return r});
+  const lines=[];
+  lines.push('| '+normalized[0].map(c=>escapeCell(c)).join(' | ')+' |');
+  lines.push('| '+normalized[0].map(()=>'---').join(' | ')+' |');
+  for(let i=1;i<normalized.length;i++){
+    const row=normalized[i];
+    const allEmpty=row.every(c=>c.trim()==='');
+    if(allEmpty)continue;
+    lines.push('| '+row.map(c=>escapeCell(c)).join(' | ')+' |');
+  }
+  return lines.join('\n');
+}
+
+function escapeCell(s){
+  return String(s).replace(/\|/g,'\\|').replace(/\n/g,' ');
+}
+
+async function convertPdf(){
+  const data=await selectedFile.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    const lines=[];
+    let lastY=null;
+    let line='';
+    for(const item of content.items){
+      if(lastY!==null&&Math.abs(item.transform[5]-lastY)>5){
+        lines.push(line.trim());
+        line='';
+      }
+      line+=item.str;
+      lastY=item.transform[5];
+    }
+    if(line.trim())lines.push(line.trim());
+    pages.push(lines);
+  }
+  markdownResult=pages.map((p,i)=>{
+    const header=i>0?'\n---\n\n':'';
+    return header+p.join('\n\n');
+  }).join('\n');
+}
+
+function showError(msg){errorEl.textContent=msg;errorEl.style.display='block'}
+function hideError(){errorEl.style.display='none'}
+</script>
+</body>
+</html>
